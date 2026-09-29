@@ -7,7 +7,18 @@ pacientes sem usar o diagnóstico. Aqui o problema passa a ser **supervisionado*
 aprende o alvo `cardio` e apoia a **triagem**, indicando quem deve ser priorizado para
 investigação.
 
-![Probabilidade prevista pela rede no plano pressão sistólica × idade](reports/figures/04-otimizadores-arquiteturas/superficie-decisao-2d.png)
+## O app em funcionamento
+
+**Paciente** — probabilidade prevista, decisão de triagem e quatro gráficos interativos:
+
+![Aba Paciente da aplicação](reports/figures/app/app-paciente.png)
+
+<details>
+<summary><b>Desempenho do modelo</b> — limiar interativo, calibração, comparação e importância (clique para abrir)</summary>
+
+![Aba Desempenho do modelo](reports/figures/app/app-desempenho.png)
+
+</details>
 
 ## Dados
 
@@ -117,6 +128,26 @@ sensibilidade ≥ 80 %:
 
 Os gráficos são feitos com Altair (`src/deployment/graficos_app.py`) e testados sem abrir a
 aplicação.
+
+### Publicando o app (Streamlit Community Cloud)
+
+O app pode ficar on-line, de graça, lendo direto deste repositório:
+
+1. Entre em [share.streamlit.io](https://share.streamlit.io) com a conta do GitHub.
+2. **Create app** → *Deploy a public app from GitHub* → repositório
+   `Nascimentokp/CoracaoDadoRedesNeurais`, branch `main`, arquivo
+   `src/deployment/app.py`.
+3. Em **Advanced settings**, escolha **Python 3.12**. Para o assistente funcionar, cole em
+   *Secrets*: `OPENAI_API_KEY = "sk-..."`. Sem a chave, as demais abas funcionam
+   normalmente.
+4. **Deploy**. A primeira instalação leva alguns minutos (TensorFlow).
+
+O servidor usa `src/deployment/requirements.txt`, só com o que o app precisa. O ambiente
+completo do `uv.lock` (PyTorch, SHAP, JupyterLab) é pesado demais para o plano gratuito.
+
+> **Atenção à chave da OpenAI num app público:** qualquer visitante poderá usar o
+> assistente, e o custo cai na sua conta. Defina um limite de gastos na OpenAI
+> (*Settings → Limits*) ou publique sem a chave.
 
 ### Configurando o agente
 
