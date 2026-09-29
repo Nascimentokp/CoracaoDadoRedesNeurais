@@ -1,6 +1,8 @@
 # Coração de Dados — Redes Neurais
 # EQUIPE: Adriano, Leonardo e João Paulo
 
+[![Abrir o app](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://coracaodadoredesneurais-7whuy9aghffdxzsacspox9.streamlit.app/)
+
 Redes neurais (deep learning) para **prever doença cardiovascular** a partir do perfil
 clínico do paciente. É o projeto irmão do CoracaoDadoTema6, que segmentava os mesmos
 pacientes sem usar o diagnóstico. Aqui o problema passa a ser **supervisionado**: a rede
@@ -8,6 +10,8 @@ aprende o alvo `cardio` e apoia a **triagem**, indicando quem deve ser priorizad
 investigação.
 
 ## O app em funcionamento
+
+**[▶ Abrir o app on-line](https://coracaodadoredesneurais-7whuy9aghffdxzsacspox9.streamlit.app/)**, sem instalar nada.
 
 **Paciente** — probabilidade prevista, decisão de triagem e quatro gráficos interativos:
 
@@ -131,7 +135,7 @@ aplicação.
 
 ### Publicando o app (Streamlit Community Cloud)
 
-O app pode ficar on-line, de graça, lendo direto deste repositório:
+O app está publicado em <https://coracaodadoredesneurais-7whuy9aghffdxzsacspox9.streamlit.app/>. Para publicar uma cópia (por exemplo, num fork):
 
 1. Entre em [share.streamlit.io](https://share.streamlit.io) com a conta do GitHub.
 2. **Create app** → *Deploy a public app from GitHub* → repositório
