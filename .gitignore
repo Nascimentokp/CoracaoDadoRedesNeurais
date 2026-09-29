@@ -1,0 +1,23 @@
+# Ambiente
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Modelos são regenerados por `uv run invoke treinar`; os pequenos ficam versionados
+# para a aplicação funcionar logo após o clone.
+models/*.h5
+
+# Skills instaladas pelo Streamlit: são links para dentro de .venv/ e ficariam
+# quebrados num clone novo.
+.agents/
+.claude/skills/developing-with-streamlit
+
+# Chaves de API
+.env

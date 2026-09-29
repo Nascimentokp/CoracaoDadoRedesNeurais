@@ -1,0 +1,7 @@
+﻿otimizador;taxa;auc_val;epocas;segundos
+Nadam;0,001;0,802;31;6,177
+Adam;0,001;0,802;31;5,7402
+AdamW;0,001;0,8019;31;5,8941
+RMSprop;0,001;0,8019;27;4,8663
+SGD;0,05;0,8015;60;9,2091
+SGD + momentum;0,01;0,8013;34;6,0034

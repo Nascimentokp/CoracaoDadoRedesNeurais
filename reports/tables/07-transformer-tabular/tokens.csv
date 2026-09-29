@@ -1,0 +1,13 @@
+﻿token;colunas_de_entrada;n_colunas
+Idade (anos);idade_anos;1
+Altura (cm);height;1
+Peso (kg);weight;1
+IMC;imc;1
+Pressão sistólica;ap_hi;1
+Pressão diastólica;ap_lo;1
+Colesterol;cholesterol_1, cholesterol_2, cholesterol_3;3
+Glicose;gluc_1, gluc_2, gluc_3;3
+Sexo masculino;sexo_masculino;1
+Fumante;smoke;1
+Consome álcool;alco;1
+Fisicamente ativo;active;1

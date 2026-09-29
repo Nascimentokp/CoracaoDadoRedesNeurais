@@ -1,0 +1,6 @@
+﻿atributos;n_atributos;auc_val_logistica;auc_val_gradient_boosting
+16 variáveis originais;16;0,792;0,8019
+PCA (4D);4;0,7777;0,7856
+Autoencoder (4D);4;0,7717;0,7839
+PCA (2D);2;0,7761;0,7746
+Autoencoder (2D);2;0,7185;0,7699

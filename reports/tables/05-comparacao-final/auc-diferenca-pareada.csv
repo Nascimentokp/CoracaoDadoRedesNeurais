@@ -1,0 +1,6 @@
+﻿;diferenca;ic95_inf;ic95_sup;significativa
+Gradient Boosting − MLP Keras;0,0013;-0,0002;0,0029;False
+MLP PyTorch − MLP Keras;0,001;0,0001;0,0018;True
+MLP Keras − MLP NumPy;0,0005;-0,0007;0,0017;False
+MLP Keras − Regressão logística;0,0071;0,0048;0,0093;True
+Gradient Boosting − Regressão logística;0,0084;0,0059;0,0109;True

@@ -1,0 +1,3 @@
+﻿;auc_roc;auc_pr;acuracia;sensibilidade;especificidade;precisao;f1;brier;limiar
+MLP NumPy (16 entradas);0,8009;0,7806;0,7323;0,6962;0,7677;0,7459;0,7201;0,1807;0,5
+Neurônio sigmoide (2 variáveis);0,7787;0,7615;0,7162;0,6515;0,7796;0,7432;0,6943;0,1931;0,5

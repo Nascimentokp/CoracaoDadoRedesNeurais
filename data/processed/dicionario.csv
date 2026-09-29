@@ -1,0 +1,14 @@
+variavel;descricao;valores;Tipo
+id;Identificador único do paciente;[0, 99999];Discreta
+age;Idade do paciente, em dias, na data do exame;[10798, 23713];Discreta
+gender;"Sexo do paciente (código categórico; 1 e 2 não indicam ordem)";[1, 2];Discreta
+height;Altura do paciente, em centímetros;[55, 250];Discreta
+weight;Peso do paciente, em quilogramas;[10.0, 200.0];Contínua
+ap_hi;Pressão arterial sistólica;[-150, 16020];Discreta
+ap_lo;Pressão arterial diastólica;[-70, 11000];Discreta
+cholesterol;Nível de colesterol (1 = normal, 2 = acima do normal, 3 = muito acima do normal);['normal', 'muito acima do normal'];Ordinal
+gluc;Nível de glicose (1 = normal, 2 = acima do normal, 3 = muito acima do normal);['normal', 'muito acima do normal'];Ordinal
+smoke;Paciente fumante (0 = não, 1 = sim);[0, 1];Discreta
+alco;Paciente consome álcool (0 = não, 1 = sim);[0, 1];Discreta
+active;Paciente pratica atividade física (0 = não, 1 = sim);[0, 1];Discreta
+cardio;Presença de doença cardiovascular — alvo, fora da modelagem exploratória (0 = não, 1 = sim);[0, 1];Discreta

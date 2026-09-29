@@ -1,0 +1,18 @@
+{
+  "origem": "data/raw/cardio_train.csv",
+  "destino": "data/processed/cardio_curado.csv",
+  "linhas_entrada": 70000,
+  "colunas_entrada": 13,
+  "linhas_saida": 68551,
+  "colunas_saida": 12,
+  "registros_removidos": 1449,
+  "pct_registros_removidos": 2.07,
+  "celulas_vazias_entrada": 0,
+  "celulas_vazias_saida": 0,
+  "ajustes": 4,
+  "ajustes_por_acao": {
+    "removido": 3,
+    "corrigido": 1
+  },
+  "equivalente_ao_pipeline": true
+}

@@ -1,0 +1,63 @@
+{
+  "arquitetura": {
+    "ocultas": [
+      64,
+      32,
+      16
+    ],
+    "dropout": 0.2,
+    "otimizador": "Adam",
+    "taxa": 0.001
+  },
+  "n_parametros": 3713,
+  "epocas": 25,
+  "limiar": 0.3820459544658661,
+  "recall_minimo": 0.8,
+  "teste_limiar_05": {
+    "limiar": 0.5,
+    "auc_roc": 0.8013961637671567,
+    "auc_pr": 0.7859612500106279,
+    "acuracia": 0.7382393698490264,
+    "sensibilidade": 0.7096108490566038,
+    "especificidade": 0.7662768875415042,
+    "precisao": 0.7483289289600498,
+    "f1": 0.7284557766512825,
+    "brier": 0.1802932322025299,
+    "vp": 4814,
+    "fp": 1619,
+    "fn": 1970,
+    "vn": 5308
+  },
+  "teste_limiar_escolhido": {
+    "limiar": 0.3820459544658661,
+    "auc_roc": 0.8013961637671567,
+    "auc_pr": 0.7859612500106279,
+    "acuracia": 0.7175990080956896,
+    "sensibilidade": 0.8077830188679245,
+    "especificidade": 0.6292767431788653,
+    "precisao": 0.6809145129224652,
+    "f1": 0.7389428263214671,
+    "brier": 0.1802932322025299,
+    "vp": 5480,
+    "fp": 2568,
+    "fn": 1304,
+    "vn": 4359
+  },
+  "n_treino": 41130,
+  "n_validacao": 13710,
+  "n_teste": 13711,
+  "referencia": {
+    "idade_anos": 53.95756331279945,
+    "height": 165.0,
+    "weight": 72.0,
+    "imc": 26.346494034400994,
+    "ap_hi": 120.0,
+    "ap_lo": 80.0,
+    "cholesterol": 1,
+    "gluc": 1,
+    "sexo_masculino": 0,
+    "smoke": 0,
+    "alco": 0,
+    "active": 1
+  }
+}
