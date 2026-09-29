@@ -1,4 +1,5 @@
 # Coração de Dados — Redes Neurais
+# EQUIPE: Adriano, Leonardo e João Paulo
 
 Redes neurais (deep learning) para **prever doença cardiovascular** a partir do perfil
 clínico do paciente. É o projeto irmão do CoracaoDadoTema6, que segmentava os mesmos
