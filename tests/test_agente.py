@@ -113,6 +113,7 @@ def test_ciclo_react_chama_a_rede_e_responde():
 def test_sem_chave_de_api_da_erro_claro(monkeypatch):
     from src.agente.agente import criar_modelo_llm
 
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    for variavel in ("OPENAI_API_KEY", "DEEPSEEK_API_KEY", "LLM_PROVEDOR"):
+        monkeypatch.delenv(variavel, raising=False)
     with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
         criar_modelo_llm()

@@ -11,27 +11,18 @@ Cada ferramenta é uma função Python comum (testável sem API) embrulhada com
 
 from __future__ import annotations
 
-import re
 from functools import lru_cache
-from typing import Literal
 
 import pandas as pd
 from langchain_core.tools import tool
+from pydantic import ValidationError
 
 from src import config
+from src.agente.esquemas import NIVEIS, Paciente, interpretar_pressao, traduzir_erros
 from src.data.dados import derivar_variaveis
 from src.model import avaliacao, treino
 
-#: Faixas vistas no treino. Fora delas a rede extrapola, e o agente avisa.
-FAIXAS = {
-    "idade": (30, 65),
-    "altura_cm": (130, 207),
-    "peso_kg": (30, 183),
-    "pressao_sistolica": (60, 240),
-    "pressao_diastolica": (40, 160),
-}
-
-NIVEIS = {1: "normal", 2: "acima do normal", 3: "muito acima do normal"}
+__all__ = ["FERRAMENTAS", "avaliar", "avaliar_validado", "buscar_achados", "interpretar_pressao"]
 
 
 @lru_cache(maxsize=1)
@@ -48,49 +39,36 @@ def _descrever(variavel: str, valor) -> str:
     return f"{float(valor):.1f}".removesuffix(".0")
 
 
-def avaliar(
-    idade: float,
-    sexo: Literal["feminino", "masculino"],
-    altura_cm: float,
-    peso_kg: float,
-    pressao_sistolica: int,
-    pressao_diastolica: int,
-    colesterol: Literal[1, 2, 3],
-    glicose: Literal[1, 2, 3],
-    fumante: bool,
-    consome_alcool: bool,
-    fisicamente_ativo: bool,
-) -> dict:
+def avaliar(**dados) -> dict:
+    """Valida os dados com o esquema ``Paciente`` e chama a rede.
+
+    Dados inválidos não chegam à rede: voltam como ``{"erro": ...}`` em português.
+    """
+    try:
+        paciente = Paciente.model_validate(dados)
+    except ValidationError as erro:
+        return {"erro": " ".join(traduzir_erros(erro)) + " Confirme os valores."}
+    return avaliar_validado(paciente)
+
+
+def avaliar_validado(p: Paciente) -> dict:
     """Probabilidade prevista, decisão de triagem e fatores que mais pesaram."""
-    if pressao_diastolica >= pressao_sistolica:
-        return {"erro": "A diastólica precisa ser menor que a sistólica. Confirme os valores."}
-    if colesterol not in NIVEIS or glicose not in NIVEIS:
-        return {"erro": "Colesterol e glicose vão de 1 (normal) a 3 (muito acima do normal)."}
-
-    valores = locals()
-    avisos = [
-        f"{nome} = {valores[nome]} está fora da faixa vista no treino ({mi}–{ma}); "
-        "a previsão é uma extrapolação e merece menos confiança."
-        for nome, (mi, ma) in FAIXAS.items()
-        if not mi <= valores[nome] <= ma
-    ]
-
     modelo, preprocessador, metadados = _modelo()
     paciente = derivar_variaveis(
         pd.DataFrame(
             [
                 {
-                    "gender": 2 if sexo == "masculino" else 1,
-                    "height": altura_cm,
-                    "weight": peso_kg,
-                    "ap_hi": pressao_sistolica,
-                    "ap_lo": pressao_diastolica,
-                    "cholesterol": colesterol,
-                    "gluc": glicose,
-                    "smoke": int(fumante),
-                    "alco": int(consome_alcool),
-                    "active": int(fisicamente_ativo),
-                    "idade_anos": idade,
+                    "gender": 2 if p.sexo == "masculino" else 1,
+                    "height": p.altura_cm,
+                    "weight": p.peso_kg,
+                    "ap_hi": p.pressao_sistolica,
+                    "ap_lo": p.pressao_diastolica,
+                    "cholesterol": p.colesterol,
+                    "gluc": p.glicose,
+                    "smoke": int(p.fumante),
+                    "alco": int(p.consome_alcool),
+                    "active": int(p.fisicamente_ativo),
+                    "idade_anos": p.idade,
                 }
             ]
         )
@@ -124,7 +102,7 @@ def avaliar(
             }
             for nome, valor in principais.items()
         ],
-        "avisos": avisos,
+        "avisos": p.avisos(),
     }
 
 
@@ -223,48 +201,23 @@ def buscar_achados(pergunta: str) -> list[dict[str, str]]:
     return encontrados or [{"tema": tema, "achado": ACHADOS[tema]} for tema in ("limitações",)]
 
 
-def interpretar_pressao(texto: str) -> dict:
-    """Converte pressão escrita à brasileira em mmHg: "15 por 9,5" → 150/95.
-
-    Aceita "15 por 9", "15x9", "15/9,5", "150/95" e "150 por 95". Valores abaixo de 30
-    estão em cmHg (o "12 por 8" do consultório) e são multiplicados por 10.
-    """
-    numeros = re.findall(r"\d+(?:[.,]\d+)?", texto)
-    if len(numeros) != 2:
-        return {"erro": f"Não encontrei dois valores de pressão em {texto!r}."}
-    sistolica, diastolica = (float(n.replace(",", ".")) for n in numeros)
-    sistolica, diastolica = (v * 10 if v < 30 else v for v in (sistolica, diastolica))
-    return {"pressao_sistolica": round(sistolica), "pressao_diastolica": round(diastolica)}
-
-
 # --------------------------------------------------------------------------- #
 # Versões para o LangChain: a docstring é o que o LLM lê para decidir a chamada.
 # --------------------------------------------------------------------------- #
 
 
-@tool
-def avaliar_paciente(
-    idade: float,
-    sexo: Literal["feminino", "masculino"],
-    altura_cm: float,
-    peso_kg: float,
-    pressao_sistolica: int,
-    pressao_diastolica: int,
-    colesterol: Literal[1, 2, 3],
-    glicose: Literal[1, 2, 3],
-    fumante: bool,
-    consome_alcool: bool,
-    fisicamente_ativo: bool,
-) -> dict:
+@tool(args_schema=Paciente)
+def avaliar_paciente(**dados) -> dict:
     """Calcula com a rede neural a probabilidade de doença cardiovascular de um paciente.
 
     Use SEMPRE esta ferramenta para qualquer número de risco; nunca estime de cabeça.
     Só chame quando tiver os 11 dados; se faltar algum, pergunte ao usuário antes.
     Colesterol e glicose: 1 = normal, 2 = acima do normal, 3 = muito acima do normal.
     Devolve probabilidade, limiar de triagem, decisão, IMC, os fatores que mais pesaram
-    (em pontos percentuais) e avisos de valores fora da faixa do treino.
+    (em pontos percentuais) e avisos de valores fora da faixa do treino. Se algum valor
+    for inválido, a ferramenta devolve o erro: corrija e chame de novo.
     """
-    return avaliar(**locals())
+    return avaliar(**dados)
 
 
 @tool

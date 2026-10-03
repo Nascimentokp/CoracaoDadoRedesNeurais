@@ -4,9 +4,9 @@ A pessoa descreve o paciente em texto livre ("homem, 58 anos, pressão 15 por 9,
 fuma…"). O agente extrai os dados, pergunta o que faltar, chama a rede pela
 ferramenta ``avaliar_paciente`` e explica o resultado em linguagem simples.
 
-Requer a variável de ambiente ``OPENAI_API_KEY`` (pode ficar num arquivo
-``.env`` na raiz do projeto — veja ``.env.exemplo``). O modelo padrão pode ser
-trocado com ``OPENAI_MODEL``.
+Requer ``OPENAI_API_KEY`` ou ``DEEPSEEK_API_KEY`` (pode ficar num arquivo ``.env``
+na raiz do projeto — veja ``.env.exemplo``). Sem chave, o fluxo LangGraph de
+``src/agente/fluxo.py`` funciona em modo demonstração.
 
 Uso no terminal: ``uv run invoke agente``.
 """
@@ -63,15 +63,47 @@ Seja conciso.
 """
 
 
+def provedor() -> str:
+    """Qual LLM usar: ``LLM_PROVEDOR`` explícito, senão a chave que existir, senão ``demo``.
+
+    DeepSeek fala o mesmo protocolo da OpenAI; o adaptador ``ChatOpenAI`` serve aos dois,
+    mudando só o endereço (como nos exemplos da disciplina).
+    """
+    escolhido = os.getenv("LLM_PROVEDOR", "").strip().lower()
+    if escolhido in {"openai", "deepseek", "demo"}:
+        return escolhido
+    if os.getenv("OPENAI_API_KEY"):
+        return "openai"
+    if os.getenv("DEEPSEEK_API_KEY"):
+        return "deepseek"
+    return "demo"
+
+
 def criar_modelo_llm(modelo: str | None = None) -> BaseChatModel:
-    """ChatOpenAI com temperatura 0 (respostas estáveis para a mesma pergunta)."""
+    """ChatOpenAI (OpenAI ou DeepSeek) com temperatura 0 e tempo limite de 30 s."""
     from langchain_openai import ChatOpenAI
 
-    if not os.getenv("OPENAI_API_KEY"):
-        raise RuntimeError(
-            "Defina OPENAI_API_KEY (no ambiente ou num arquivo .env na raiz do projeto)."
+    escolhido = provedor()
+    if escolhido == "deepseek" and os.getenv("DEEPSEEK_API_KEY"):
+        return ChatOpenAI(
+            model=modelo or os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+            api_key=os.getenv("DEEPSEEK_API_KEY"),
+            base_url="https://api.deepseek.com",
+            temperature=0,
+            timeout=30,
+            max_retries=1,
         )
-    return ChatOpenAI(model=modelo or os.getenv("OPENAI_MODEL", MODELO_PADRAO), temperature=0)
+    if escolhido == "openai" and os.getenv("OPENAI_API_KEY"):
+        return ChatOpenAI(
+            model=modelo or os.getenv("OPENAI_MODEL", MODELO_PADRAO),
+            temperature=0,
+            timeout=30,
+            max_retries=1,
+        )
+    raise RuntimeError(
+        "Defina OPENAI_API_KEY ou DEEPSEEK_API_KEY (no ambiente ou num arquivo .env na raiz "
+        "do projeto). Sem chave, use o fluxo LangGraph em modo demonstração."
+    )
 
 
 def criar_agente(llm: BaseChatModel | None = None):

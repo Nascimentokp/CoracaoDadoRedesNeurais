@@ -6,7 +6,6 @@ Execute com `uv run invoke app`. Requer o modelo gravado por
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -218,67 +217,114 @@ with aba_paciente:
             st.altair_chart(graf.mapa_pressao_idade(analise["grade"], ap_hi, idade, LIMIAR))
 
 # --------------------------------------------------------------------------- #
-# Assistente — agente LangChain que usa a rede como ferramenta
+# Assistente — fluxo LangGraph (interpretar → validar → avaliar → explicar)
 # --------------------------------------------------------------------------- #
+
+EXEMPLOS = {
+    ":material/person: Paciente completo": (
+        "Homem de 58 anos, 1,72 m e 94 kg, pressão 15 por 9,5, colesterol acima do normal, "
+        "glicose normal, fuma, não bebe e é sedentário."
+    ),
+    ":material/help: Faltando dados": "Mulher, 61 anos, pressão 14 por 9. Devo encaminhar?",
+    ":material/quiz: Pergunta sobre o modelo": "O modelo diz que fumar reduz o risco? Está certo?",
+}
 
 
 @st.cache_resource
-def carregar_agente():
-    from src.agente.agente import criar_agente
+def carregar_fluxo(provedor_llm: str):
+    """Grafo compilado uma vez por provedor (demo, openai ou deepseek)."""
+    from src.agente.agente import criar_modelo_llm
+    from src.agente.fluxo import construir_fluxo
 
-    return criar_agente()
+    return construir_fluxo(None if provedor_llm == "demo" else criar_modelo_llm())
 
 
-def mostrar_chamadas(chamadas: list[dict]) -> None:
-    """Linha do tempo com as ferramentas que o agente chamou nesta resposta."""
-    if not chamadas:
+def mostrar_rastreio(rastreio: list[str]) -> None:
+    """Linha do tempo com os nós do grafo percorridos nesta resposta."""
+    if not rastreio:
         return
-    with st.status(f"{len(chamadas)} chamada(s) de ferramenta", type="compact", state="complete"):
-        for chamada in chamadas:
-            with st.status(chamada["ferramenta"], type="step", state="complete"):
-                st.json(chamada["argumentos"], expanded=False)
-                st.code(chamada["resultado"] or "", language="json", wrap_lines=True)
+    with st.status(f"Fluxo: {len(rastreio)} passos", type="compact", state="complete"):
+        for linha in rastreio:
+            no, _, detalhe = linha.partition(" ")
+            with st.status(no, type="step", state="complete"):
+                st.caption(detalhe)
+
+
+def novo_paciente() -> None:
+    st.session_state.conversa = []
+    st.session_state.parcial_paciente = {}
 
 
 with aba_assistente:
-    st.caption(
-        "Descreva o paciente em texto livre. Um LLM (OpenAI, via LangChain) extrai os dados, "
-        "pergunta o que faltar e chama a rede neural como ferramenta — o risco vem sempre da rede."
-    )
-    if not os.getenv("OPENAI_API_KEY"):
-        st.info(
-            "Para usar o assistente, crie um arquivo `.env` na raiz do projeto com "
-            "`OPENAI_API_KEY=...` (veja `.env.exemplo`) e reinicie a aplicação.",
-            icon=":material/key:",
-        )
-    else:
-        if "conversa" not in st.session_state:
-            st.session_state.conversa = []
+    from src.agente.agente import provedor
+    from src.agente.fluxo import LIMITE_MENSAGEM, triar
+
+    provedor_llm = provedor()
+    st.session_state.setdefault("conversa", [])
+    st.session_state.setdefault("parcial_paciente", {})
+
+    cab_texto, cab_botao = st.columns([4, 1], vertical_alignment="center")
+    with cab_texto:
+        if provedor_llm == "demo":
+            st.caption(
+                ":orange-badge[Modo demonstração] Sem chave de API: os dados são extraídos por "
+                "regras e a resposta é montada por modelo de texto, sem IA e sem custo. O risco "
+                "vem da mesma rede neural."
+            )
+        else:
+            st.caption(
+                f":green-badge[LLM: {provedor_llm}] O LLM só extrai os dados e redige a "
+                "explicação; validação (Pydantic) e risco (rede neural) são calculados em código."
+            )
+    with cab_botao:
+        st.button("Novo paciente", icon=":material/restart_alt:", on_click=novo_paciente,
+                  width="stretch")  # fmt: skip
+
+    # Contêiner reservado antes do campo de texto: as mensagens novas entram nele e
+    # ficam acima do campo, e não abaixo (dentro de abas o campo não fica fixo no rodapé).
+    conversa = st.container()
+    with conversa:
         for mensagem in st.session_state.conversa:
             with st.chat_message(mensagem["role"]):
-                mostrar_chamadas(mensagem.get("chamadas", []))
+                mostrar_rastreio(mensagem.get("rastreio", []))
                 st.markdown(mensagem["content"])
 
-        if pergunta := st.chat_input(
-            "Ex.: homem, 58 anos, 1,72 m, 94 kg, pressão 15 por 9, colesterol alto, fuma",
-            submit_mode="disable",
-        ):
-            st.session_state.conversa.append({"role": "user", "content": pergunta})
+    pergunta = st.chat_input(
+        "Ex.: homem, 58 anos, 1,72 m, 94 kg, pressão 15 por 9, colesterol alto, fuma",
+        max_chars=LIMITE_MENSAGEM,
+        submit_mode="disable",
+    )
+    if not st.session_state.conversa:
+        with st.container(horizontal=True):
+            for rotulo, texto in EXEMPLOS.items():
+                if st.button(rotulo, key=f"exemplo_{rotulo}"):
+                    pergunta = texto
+
+    if pergunta:
+        st.session_state.conversa.append({"role": "user", "content": pergunta})
+        with conversa:
             with st.chat_message("user"):
                 st.markdown(pergunta)
             with st.chat_message("assistant"):
-                from src.agente.agente import conversar
-
-                historico = [
-                    {"role": m["role"], "content": m["content"]} for m in st.session_state.conversa
-                ]
-                with st.spinner("Consultando a rede…"):
-                    resposta, chamadas = conversar(carregar_agente(), historico)
-                mostrar_chamadas(chamadas)
-                st.markdown(resposta)
-            st.session_state.conversa.append(
-                {"role": "assistant", "content": resposta, "chamadas": chamadas}
-            )
+                try:
+                    with st.spinner("Executando o fluxo…"):
+                        r = triar(pergunta, st.session_state.parcial_paciente,
+                                  fluxo=carregar_fluxo(provedor_llm))  # fmt: skip
+                except Exception as erro:  # falha do provedor: avisa, sem fingir resposta (APP-03)
+                    st.error(
+                        f"Assistente indisponível no momento ({type(erro).__name__}). "
+                        "Tente novamente em instantes.",
+                        icon=":material/error:",
+                    )
+                    st.session_state.conversa.pop()
+                else:
+                    mostrar_rastreio(r["rastreio"])
+                    st.markdown(r["resposta"])
+                    st.session_state.parcial_paciente = r["parcial"]
+                    st.session_state.conversa.append(
+                        {"role": "assistant", "content": r["resposta"], "rastreio": r["rastreio"]}
+                    )
+                    st.session_state.conversa = st.session_state.conversa[-20:]
 
 # --------------------------------------------------------------------------- #
 # Desempenho

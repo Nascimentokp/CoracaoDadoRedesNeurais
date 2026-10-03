@@ -1,0 +1,32 @@
+# Verifica os critérios de specs/01-triagem.md a cada push e pull request.
+# Não precisa de chave de API: os testes usam o modo demonstração e LLMs roteirizados.
+name: Testes
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar o uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Instalar dependências (versões do uv.lock)
+        run: uv sync --frozen
+
+      - name: Lint e formatação
+        run: uv run invoke lint
+
+      - name: Critérios de aceitação
+        env:
+          LLM_PROVEDOR: demo
+          MPLBACKEND: Agg
+        run: uv run pytest -q

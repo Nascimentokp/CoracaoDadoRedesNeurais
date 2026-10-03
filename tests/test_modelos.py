@@ -18,6 +18,7 @@ def _dados_xor(n=800, semente=0):
 
 
 def test_gradiente_analitico_bate_com_numerico():
+    """MOD-01."""
     rng = np.random.default_rng(1)
     X = rng.normal(size=(32, 5))
     y = (rng.random(32) > 0.5).astype(float)
@@ -41,6 +42,7 @@ def test_gradiente_analitico_bate_com_numerico():
 
 
 def test_mlp_numpy_aprende_xor():
+    """MOD-01."""
     X, y = _dados_xor()
     rede = MLPNumpy(n_entradas=2, ocultas=(16, 8), taxa=0.3, l2=0.0)
     rede.fit(X, y, epocas=300, lote=64)
@@ -49,6 +51,7 @@ def test_mlp_numpy_aprende_xor():
 
 
 def test_keras_e_torch_aprendem_xor():
+    """MOD-01."""
     from src.model import mlp_keras, mlp_torch
 
     X, y = _dados_xor()
@@ -64,6 +67,7 @@ def test_keras_e_torch_aprendem_xor():
 
 
 def test_limiar_respeita_sensibilidade_minima():
+    """MOD-02."""
     rng = np.random.default_rng(0)
     y = rng.integers(0, 2, 2000)
     p = np.clip(0.5 * y + rng.normal(0.25, 0.2, 2000), 0, 1)
@@ -75,6 +79,7 @@ def test_limiar_respeita_sensibilidade_minima():
 
 
 def test_limiar_nao_perde_pontos_colineares_da_roc():
+    """MOD-02."""
     # Muitos positivos seguidos formam um trecho vertical da ROC; o limiar exato
     # em que o recall chega a 80 % fica no meio dele.
     y = np.array([0] * 10 + [1] * 10)
@@ -84,6 +89,7 @@ def test_limiar_nao_perde_pontos_colineares_da_roc():
 
 
 def test_bootstrap_pareado_distingue_modelo_melhor():
+    """MOD-03."""
     rng = np.random.default_rng(0)
     y = rng.integers(0, 2, 3000)
     ruido = rng.normal(0, 1, 3000)

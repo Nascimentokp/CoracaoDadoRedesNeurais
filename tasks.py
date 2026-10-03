@@ -15,6 +15,7 @@ NOTEBOOKS = [
     "07-transformer-tabular",
     "08-autoencoder",
     "09-agente",
+    "10-fluxo-langgraph",
 ]
 
 

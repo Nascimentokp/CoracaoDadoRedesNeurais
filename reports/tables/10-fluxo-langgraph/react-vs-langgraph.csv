@@ -1,0 +1,7 @@
+﻿;abordagem;rodada;pressao;chamadas_ao_llm;segundos;pressao_correta
+0;Agente ReAct (notebook 09);1;150/95;3;4,67;True
+1;Fluxo LangGraph;1;150/95;2;15,92;True
+2;Agente ReAct (notebook 09);2;150/95;3;4,16;True
+3;Fluxo LangGraph;2;150/95;2;3,38;True
+4;Agente ReAct (notebook 09);3;150/95;3;4,38;True
+5;Fluxo LangGraph;3;150/95;2;5,89;True

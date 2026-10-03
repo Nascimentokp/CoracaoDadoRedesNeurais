@@ -1,4 +1,4 @@
-"""Partições e pré-processamento: formato, estratificação e ausência de vazamento."""
+"""Partições e pré-processamento: formato, estratificação e ausência de vazamento (DADOS-01)."""
 
 import numpy as np
 import pytest

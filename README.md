@@ -2,6 +2,7 @@
 # EQUIPE: Adriano, Leonardo e João Paulo
 
 [![Abrir o app](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://coracaodadoredesneurais-7whuy9aghffdxzsacspox9.streamlit.app/)
+[![Testes](https://github.com/Nascimentokp/CoracaoDadoRedesNeurais/actions/workflows/testes.yml/badge.svg)](https://github.com/Nascimentokp/CoracaoDadoRedesNeurais/actions/workflows/testes.yml)
 
 Redes neurais (deep learning) para **prever doença cardiovascular** a partir do perfil
 clínico do paciente. É o projeto irmão do CoracaoDadoTema6, que segmentava os mesmos
@@ -21,6 +22,13 @@ investigação.
 <summary><b>Desempenho do modelo</b> — limiar interativo, calibração, comparação e importância (clique para abrir)</summary>
 
 ![Aba Desempenho do modelo](reports/figures/app/app-desempenho.png)
+
+</details>
+
+<details>
+<summary><b>Assistente</b> — fluxo LangGraph: pergunta o que falta, calcula e mostra cada passo (clique para abrir)</summary>
+
+![Aba Assistente](reports/figures/app/app-assistente.png)
 
 </details>
 
@@ -56,6 +64,7 @@ Transformers e um agente com LLM.
 | `07-transformer-tabular` | **Transformer** com cada variável como token: embeddings, atenção múltipla (Query/Key/Value), token `[CLS]`; mapas de atenção comparados com a permutação |
 | `08-autoencoder` | **Autoencoder** (não supervisionado): mapa latente 2D × PCA, espaço latente como atributos, registros atípicos pelo erro de reconstrução |
 | `09-agente` | **Agente ReAct** (LangChain + OpenAI) que usa a rede como ferramenta: extrai os dados de texto livre, converte a pressão em código, chama a rede e explica o resultado |
+| `10-fluxo-langgraph` | **Pydantic + LangGraph**: esquema do paciente que normaliza e valida; fluxo com caminho explícito (interpretar → validar → avaliar → explicar); modo demonstração sem chave; experimento ReAct × LangGraph |
 
 ### Relação com os conteúdos da disciplina
 
@@ -69,6 +78,7 @@ Transformers e um agente com LLM.
 | Transformers: atenção, Query/Key/Value, atenção múltipla, embeddings | 07 |
 | Redes generativas / aprendizado não supervisionado com redes | 08 (autoencoder) |
 | LangChain: agentes ReAct, ferramentas, RAG, Streamlit | 09 e aba "Assistente" do app |
+| LangGraph: fluxos e orquestração; Pydantic | 10 e aba "Assistente" do app |
 | Redes convolucionais, transfer learning, RNN/LSTM | **não aplicável** (ver Limitações) |
 
 Figuras e tabelas de cada notebook ficam em `reports/figures/<notebook>/` e
@@ -123,9 +133,11 @@ sensibilidade ≥ 80 %:
   quatro gráficos interativos: a curva "e se a pressão sistólica fosse outra?" (com a
   pressão em que o limiar é cruzado), a posição do paciente entre os 13.711 pacientes de
   teste, os fatores que mais pesaram e o paciente no mapa pressão × idade;
-* **Assistente (agente)** — chat em que a pessoa descreve o paciente em texto livre; o
-  agente (LangChain + OpenAI) extrai os dados, pergunta o que faltar, chama a rede e mostra
-  cada chamada de ferramenta. Requer `OPENAI_API_KEY`;
+* **Assistente** — chat em que a pessoa descreve o paciente em texto livre. Um fluxo
+  **LangGraph** extrai os dados, valida com **Pydantic**, pergunta o que faltar, chama a
+  rede e explica, mostrando cada passo. Os dados se acumulam entre mensagens ("e se a
+  pressão fosse 12 por 8?"). Com chave de API usa OpenAI ou DeepSeek; **sem chave, roda em
+  modo demonstração** (regras, sem IA, sem custo);
 * **Desempenho do modelo** — controle deslizante do limiar que atualiza a matriz de
   confusão e as curvas de sensibilidade/especificidade, diagrama de calibração, AUC dos
   modelos com intervalo de confiança e importância das variáveis.
@@ -141,29 +153,47 @@ O app está publicado em <https://coracaodadoredesneurais-7whuy9aghffdxzsacspox9
 2. **Create app** → *Deploy a public app from GitHub* → repositório
    `Nascimentokp/CoracaoDadoRedesNeurais`, branch `main`, arquivo
    `src/deployment/app.py`.
-3. Em **Advanced settings**, escolha **Python 3.12**. Para o assistente funcionar, cole em
-   *Secrets*: `OPENAI_API_KEY = "sk-..."`. Sem a chave, as demais abas funcionam
-   normalmente.
+3. Em **Advanced settings**, escolha **Python 3.12**. Para o assistente usar um LLM, cole em
+   *Secrets* `OPENAI_API_KEY = "sk-..."` ou `DEEPSEEK_API_KEY = "sk-..."`. Sem chave, o
+   assistente funciona em modo demonstração.
 4. **Deploy**. A primeira instalação leva alguns minutos (TensorFlow).
 
 O servidor usa `src/deployment/requirements.txt`, só com o que o app precisa. O ambiente
 completo do `uv.lock` (PyTorch, SHAP, JupyterLab) é pesado demais para o plano gratuito.
 
-> **Atenção à chave da OpenAI num app público:** qualquer visitante poderá usar o
-> assistente, e o custo cai na sua conta. Defina um limite de gastos na OpenAI
-> (*Settings → Limits*) ou publique sem a chave.
+> **Atenção à chave num app público:** qualquer visitante poderá usar o assistente, e o
+> custo cai na sua conta. Defina um limite de gastos no provedor ou publique sem a chave
+> (modo demonstração).
 
-### Configurando o agente
+### Assistente: fluxo LangGraph e agente ReAct
 
-```bash
-cp .env.exemplo .env         # e preencha OPENAI_API_KEY (o .env não vai para o git)
-uv run invoke agente         # conversa no terminal
-uv run invoke app            # ou pela aba "Assistente" da aplicação
+```mermaid
+flowchart TD
+    S([mensagem]) --> I[interpretar<br/>LLM ou regras]
+    I -->|pergunta sobre o modelo| Q[responder_pergunta]
+    I -->|triagem| V[validar<br/>Pydantic]
+    V -->|faltam dados| P[perguntar]
+    V -->|valor inválido| C[corrigir]
+    V -->|completo| A[avaliar<br/>rede neural]
+    A --> E[explicar<br/>LLM ou modelo de texto]
 ```
 
-O LLM não calcula risco: todo número vem da rede neural, por meio da ferramenta
-`avaliar_paciente` (`src/agente/ferramentas.py`). Os testes exercitam o ciclo completo com
-um LLM roteirizado, sem chamar a API.
+O LLM só **extrai** dados e **redige**; validação e risco são código (`src/agente/fluxo.py`,
+`src/agente/esquemas.py`). O agente ReAct do notebook 09 (`src/agente/agente.py`), em que o
+LLM escolhe as ferramentas, fica como referência; o notebook 10 compara os dois.
+
+```bash
+cp .env.exemplo .env         # OPENAI_API_KEY ou DEEPSEEK_API_KEY (o .env não vai para o git)
+uv run invoke app            # aba "Assistente"
+uv run invoke agente         # agente ReAct no terminal
+```
+
+### Especificação e testes
+
+Os critérios de aceitação estão em [`specs/01-triagem.md`](specs/01-triagem.md), com IDs
+(VAL, FLX, AGT, APP, MOD…) citados nos testes. O fluxo de trabalho é **especificação →
+teste → código → verificação**. O GitHub Actions roda lint e testes a cada push, sem chave
+de API: os testes usam o modo demonstração e LLMs roteirizados.
 
 ## Limitações
 
@@ -186,7 +216,7 @@ uv run invoke --list         # lista as tarefas
 
 uv run invoke treinar        # treina a rede final e grava models/
 uv run invoke app            # abre a aplicação Streamlit
-uv run invoke notebooks      # executa os 9 notebooks em ordem (~15 min num Mac M-series)
+uv run invoke notebooks      # executa os 10 notebooks em ordem (~15 min num Mac M-series)
 uv run invoke agente         # conversa com o agente no terminal (requer OPENAI_API_KEY)
 uv run invoke lab            # JupyterLab
 uv run invoke test           # pytest
@@ -204,7 +234,7 @@ cada um acrescenta a raiz do projeto ao `sys.path`.
 │   ├── processed/          # cardio_curado.csv (herdado do Tema 6), dicionário, manifesto
 │   └── raw/                # cardio_train.csv original
 ├── models/                 # mlp_cardio.keras, preprocessador.joblib, metadados.json
-├── notebooks/              # 01 a 09 — ver Roteiro
+├── notebooks/              # 01 a 10 — ver Roteiro
 ├── reports/                # figuras e tabelas geradas pelos notebooks
 ├── src/
 │   ├── config.py           # caminhos, variáveis, semente, protocolo, paleta
@@ -217,10 +247,12 @@ cada um acrescenta a raiz do projeto ao `sys.path`.
 │   │   ├── autoencoder.py  # autoencoder denso e erro de reconstrução
 │   │   ├── avaliacao.py    # métricas, limiar, bootstrap pareado, explicação por oclusão
 │   │   └── treino.py       # treino e persistência do modelo final
-│   ├── agente/             # agente ReAct (LangChain + OpenAI) e suas ferramentas
+│   ├── agente/             # esquemas Pydantic, fluxo LangGraph, agente ReAct e ferramentas
 │   ├── utils/              # gravação de figuras/tabelas e gráficos comuns
 │   └── deployment/app.py   # aplicação Streamlit
-├── tests/                  # pytest: dados, gradiente, redes, limiar, bootstrap, oclusão, agente, app
+├── specs/                  # critérios de aceitação com IDs
+├── tests/                  # pytest: um teste por critério (ver specs/)
+├── .github/workflows/      # testes a cada push
 ├── pyproject.toml / uv.lock
 └── tasks.py                # tarefas do invoke
 ```
@@ -232,7 +264,10 @@ Exercícios da disciplina usados como base: rede neural da soma, MLP do zero no 
 EarlyStopping, class_weight, limiar), Iris em PyTorch, vinhos com superfície de decisão em
 PCA, comparação de otimizadores no CIFAR-10 e XAI com SHAP/LIME
 ([naubergois/Exercicios](https://github.com/naubergois/Exercicios)). Slides da disciplina
-(Deep Learning, Transformers, LangChain e agentes) como guia dos notebooks 07 a 09.
+(Deep Learning, Transformers, LangChain e agentes) como guia dos notebooks 07 a 10. Colabs
+de Pydantic e de LangGraph e o repositório
+[naubergois/mercado-simples-langgraph](https://github.com/naubergois/mercado-simples-langgraph)
+como base do notebook 10, do modo demonstração, da especificação e do CI.
 
 Gorishniy et al. (2021), *Revisiting Deep Learning Models for Tabular Data* (FT-Transformer).
 Jain & Wallace (2019), *Attention is not Explanation*.
