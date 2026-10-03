@@ -45,7 +45,8 @@ diagnóstico, não prescreve e não substitui a avaliação clínica.
   sem IA, sem custo), identificado na resposta. Com chave, usa OpenAI ou DeepSeek.
   As regras não confundem: "ativo" sem contexto de exercício, idade de parente ou duração
   ("fumou por 10 anos"), hábito de parente ("o marido fuma"), data ("12/08") e negação
-  ("não tem colesterol alto").
+  antes ou depois do nome ("não está com colesterol alto", "colesterol não está alto",
+  "nega tabagismo"). Um valor que o esquema recusa é descartado, nunca derruba a extração.
 - **AGT-04**: a saída estruturada do LLM é validada pelo Pydantic; se for rejeitada, o erro
   volta ao LLM para correção (até 2 tentativas). A ferramenta `avaliar_paciente` do agente
   ReAct tem o próprio `Paciente` como esquema.

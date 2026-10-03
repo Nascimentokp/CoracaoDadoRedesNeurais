@@ -10,6 +10,8 @@ def test_numero_e_porcentagem_com_virgula():
     assert pct(0.808) == "81%"
     assert pct(0.8078, 1) == "80,8%"
     assert pct(0.004, 1, sinal=True) == "+0,4%"
+    assert numero(172.0, compacto=True) == "172"
+    assert numero(94.5, compacto=True) == "94,5"
 
 
 def test_graficos_usam_locale_brasileiro():

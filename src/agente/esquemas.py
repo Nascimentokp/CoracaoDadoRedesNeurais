@@ -21,6 +21,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from src.utils.formato import numero
+
 #: Faixas vistas no treino. Fora delas a rede extrapola (aviso, não erro).
 FAIXAS_TREINO = {
     "idade": (30, 65),
@@ -77,7 +79,7 @@ def nivel(valor):
             return int(texto)
         if "muito" in texto:
             return 3
-        if any(p in texto for p in ("acima", "alto", "elevad", "limítrofe", "limitrofe")):
+        if re.search(r"acima|\balt[oa]s?\b|elevad|lim[ií]trofe", texto):
             return 2
         if "norma" in texto:  # normal, normais
             return 1
@@ -145,7 +147,8 @@ class Paciente(BaseModel):
     def avisos(self) -> list[str]:
         """Valores fora da faixa do treino: a previsão vira extrapolação."""
         return [
-            f"{nome} = {getattr(self, nome):g} está fora da faixa vista no treino ({mi}–{ma}); "
+            f"{nome} = {numero(getattr(self, nome), compacto=True)} está fora da faixa vista no "
+            f"treino ({mi}–{ma}); "
             "a previsão é uma extrapolação e merece menos confiança."
             for nome, (mi, ma) in FAIXAS_TREINO.items()
             if not mi <= getattr(self, nome) <= ma

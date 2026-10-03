@@ -105,6 +105,17 @@ def test_pergunta_sobre_o_modelo(demo):
         ("colesterol total alto", "colesterol", 2),
         ("glicemia de jejum normal", "glicose", 1),
         ("altura 1,75", "altura_cm", 1.75),
+        # negação em várias formas (antes e depois do nome)
+        ("não está com colesterol alto", "colesterol", 1),
+        ("colesterol não está alto", "colesterol", 1),
+        ("nega colesterol alto", "colesterol", 1),
+        ("não apresenta glicose alta", "glicose", 1),  # "alta" quebrava a extração
+        ("sem glicemia elevada", "glicose", 1),
+        ("não tem colesterol muito alto", "colesterol", None),  # pode ser 2: fica em aberto
+        ("colesterol alto, glicose não está alta", "colesterol", 2),
+        ("colesterol alto, glicose não está alta", "glicose", 1),
+        ("nega tabagismo e etilismo", "fumante", False),
+        ("nega tabagismo e etilismo", "consome_alcool", False),
         ("nunca fumou, ex-fumante", "fumante", False),
         ("1,60 m", "altura_cm", 1.6),
     ],
@@ -144,10 +155,20 @@ def test_saida_invalida_do_llm_volta_para_correcao():
     assert r["resposta"] == "Explicação redigida."
 
 
-def test_virgula_decimal_so_no_numero_do_efeito():
-    """AGT-02: o valor do paciente com decimal não rouba a vírgula do efeito."""
-    fator = {"variavel": "IMC", "valor_do_paciente": "27.5", "efeito_pontos_percentuais": 1.8,
-             "sentido": "aumenta o risco"}  # fmt: skip
+def test_virgula_decimal_no_valor_e_no_efeito():
+    """APP-04: valor do paciente e efeito, os dois com vírgula; nenhum rouba a do outro."""
+    from src.agente.ferramentas import _descrever
+
+    fator = {"variavel": "IMC", "valor_do_paciente": _descrever("imc", 27.5),
+             "efeito_pontos_percentuais": 1.8, "sentido": "aumenta o risco"}  # fmt: skip
     assert _fatores_legiveis({"fatores_principais": [fator]}) == [
-        "imc (27.5): +1,8 p.p. (aumenta o risco)"
+        "imc (27,5): +1,8 p.p. (aumenta o risco)"
     ]
+    assert _descrever("ap_hi", 150.0) == "150"  # inteiro sem ",0"
+
+
+def test_explicacao_e_avisos_com_virgula(demo):
+    """APP-04: "Dados usados" e avisos de extrapolação no padrão brasileiro."""
+    r = triar(COMPLETO.replace("58 anos", "78 anos").replace("94 kg", "94,5 kg"), fluxo=demo)
+    assert "94,5 kg" in r["resposta"] and "94.5" not in r["resposta"]
+    assert "idade = 78 está fora" in r["resposta"]

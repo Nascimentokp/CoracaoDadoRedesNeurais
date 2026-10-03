@@ -137,8 +137,18 @@ def extrair_por_regras(texto: str) -> Extracao:
             ("colesterol", r"colesterol(?:\s+(?:total|ldl))?"),
             ("glicose", r"(?:glicose|glicemia)(?:\s+de\s+jejum)?"),
         ):
-            if re.search(rf"(nao tem|sem)\s+(?:{padrao})\s+{_ACIMA}", t):
-                d[campo] = 1  # "não tem colesterol alto" = normal
+            # Negação antes ("não está com colesterol alto", "nega", "sem") ou depois do nome
+            # ("colesterol não está alto"), sem atravessar vírgula ou ponto. Negar "alto" =
+            # normal; negar "muito alto" não diz o nível, então o campo fica em aberto.
+            negacao = re.search(
+                rf"\b(?:nao|nega\w*|sem)\b[^.,;]{{0,30}}?(?:{padrao})\s*(?:esta\s*|e\s*|:\s*)?"
+                rf"(muito\s+)?{_ACIMA}"
+                rf"|(?:{padrao})\s+nao\s+(?:esta\s+|e\s+)?(muito\s+)?{_ACIMA}",
+                t,
+            )
+            if negacao:
+                if not (negacao.group(1) or negacao.group(2)):
+                    d[campo] = 1
             elif m := re.search(rf"(?:{padrao})\s*(?:esta\s*|e\s*|:\s*)?" + _NIVEL, t):
                 d[campo] = nivel(m.group(1))
 
@@ -147,14 +157,15 @@ def extrair_por_regras(texto: str) -> Extracao:
 
     if re.search(
         r"(nao|nunca)\s+(e\s+)?(fuma|fumante)|ex-?fumante|parou de fumar|parasse de fumar"
-        r"|\bfumou\b.{0,30}\bparou",
+        r"|\bfumou\b.{0,30}\bparou|\bnega\w*\s+(?:o\s+)?(?:tabagismo|fumo)",
         habitos,
     ):
         d["fumante"] = False
     elif re.search(r"\b(fuma|fumante|tabagista)\b", habitos):
         d["fumante"] = True
     if re.search(
-        r"(nao|nunca)\s+(bebe|bebeu|consome alcool|ingere alcool)|abstemi|parasse de beber",
+        r"(nao|nunca)\s+(bebe|bebeu|consome alcool|ingere alcool)|abstemi|parasse de beber"
+        r"|\bnega\w*\s+[^.,;]{0,20}\b(?:etilismo|alcool)",
         habitos,
     ):
         d["consome_alcool"] = False
@@ -177,7 +188,16 @@ def extrair_por_regras(texto: str) -> Extracao:
     ):
         d["fisicamente_ativo"] = True
 
-    parcial = PacienteParcial.model_validate(d)
+    # Um valor que o esquema recusa é descartado, não derruba a extração: o fluxo
+    # pergunta por ele depois.
+    validos = {}
+    for campo, valor in d.items():
+        try:
+            PacienteParcial.model_validate({campo: valor})
+            validos[campo] = valor
+        except ValidationError:
+            pass
+    parcial = PacienteParcial.model_validate(validos)
     pergunta = not d and any(p in t for p in _PERGUNTA)
     return Extracao(intencao="pergunta" if pergunta else "triagem", paciente=parcial)
 
@@ -224,7 +244,8 @@ suficiente, diga isso.
 
 def _descrever_paciente(p: Paciente) -> str:
     return (
-        f"{p.idade:g} anos, {p.sexo}, {p.altura_cm:g} cm, {p.peso_kg:g} kg, "
+        f"{numero(p.idade, compacto=True)} anos, {p.sexo}, "
+        f"{numero(p.altura_cm, compacto=True)} cm, {numero(p.peso_kg, compacto=True)} kg, "
         f"pressão {p.pressao_sistolica}/{p.pressao_diastolica}, colesterol {NIVEIS[p.colesterol]}, "
         f"glicose {NIVEIS[p.glicose]}, fuma: {'sim' if p.fumante else 'não'}, "
         f"álcool: {'sim' if p.consome_alcool else 'não'}, "

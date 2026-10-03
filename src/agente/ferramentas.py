@@ -21,6 +21,7 @@ from src import config
 from src.agente.esquemas import NIVEIS, Paciente, interpretar_pressao, traduzir_erros
 from src.data.dados import derivar_variaveis
 from src.model import avaliacao, treino
+from src.utils.formato import numero
 
 __all__ = ["FERRAMENTAS", "avaliar", "avaliar_validado", "buscar_achados", "interpretar_pressao"]
 
@@ -36,7 +37,7 @@ def _descrever(variavel: str, valor) -> str:
         return NIVEIS[int(valor)]
     if variavel in config.BINARIAS:
         return "sim" if int(valor) else "não"
-    return f"{float(valor):.1f}".removesuffix(".0")
+    return numero(float(valor), compacto=True)  # 27.5 → "27,5"; 150.0 → "150"
 
 
 def avaliar(**dados) -> dict:
