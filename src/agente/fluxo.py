@@ -115,17 +115,21 @@ def extrair_por_regras(texto: str) -> Extracao:
 
     if (idade := _idade(t)) is not None:
         d["idade"] = idade
-    if re.search(r"\b(homem|masculino|senhor)\b", t):
+    if re.search(r"\b(homem|masculino|senhor)\b|\bsexo\s*:?\s*m\b", t):
         d["sexo"] = "masculino"
-    elif re.search(r"\b(mulher|feminino|senhora)\b", t):
+    elif re.search(r"\b(mulher|feminino|senhora)\b|\bsexo\s*:?\s*f\b", t):
         d["sexo"] = "feminino"
     if m := re.search(r"\b(\d[.,]\d{1,2})\s*(?:m\b|metro)", t):
         d["altura_cm"] = float(m.group(1).replace(",", "."))  # o esquema converte para cm
-    elif m := re.search(r"altura\D{0,10}(\d[.,]\d{1,2})\b", t):
+    elif m := re.search(r"\b(\d)\s*m\s*(\d{2})\b", t):  # "1m72"
+        d["altura_cm"] = float(f"{m.group(1)}.{m.group(2)}")
+    elif m := re.search(r"(?:altura|mede)\D{0,10}(\d[.,]\d{1,2})\b", t):
         d["altura_cm"] = float(m.group(1).replace(",", "."))
     elif m := re.search(r"(\d{3})\s*cm|altura\D{0,10}(\d{3})", t):
         d["altura_cm"] = int(m.group(1) or m.group(2))
-    if m := re.search(r"(\d{2,3}(?:[.,]\d)?)\s*(?:kg|quilo|kilo)|peso\D{0,10}(\d{2,3})", t):
+    if m := re.search(
+        r"(\d{2,3}(?:[.,]\d)?)\s*(?:kg|quilo|kilo)|(?:peso|pesa)\D{0,10}(\d{2,3}(?:[.,]\d)?)", t
+    ):
         d["peso_kg"] = float((m.group(1) or m.group(2)).replace(",", "."))
     if m := re.search(r"(?:pressao|\bpa\b)\D{0,20}" + _PRESSAO, t) or re.search(_PRESSAO_SOLTA, t):
         d["pressao_texto"] = m.group(1)
@@ -134,7 +138,7 @@ def extrair_por_regras(texto: str) -> Extracao:
         d["colesterol"] = d["glicose"] = nivel(m.group(1))
     else:
         for campo, padrao in (
-            ("colesterol", r"colesterol(?:\s+(?:total|ldl))?"),
+            ("colesterol", r"colesterol(?:\s+(?:total|ldl))?|\bldl\b"),
             ("glicose", r"(?:glicose|glicemia)(?:\s+de\s+jejum)?"),
         ):
             # Negação antes ("não está com colesterol alto", "nega", "sem") ou depois do nome
@@ -154,9 +158,14 @@ def extrair_por_regras(texto: str) -> Extracao:
 
     # Hábitos de parentes saem do texto antes de procurar os do paciente.
     habitos = re.sub(_TERCEIRO + r"\s+(?:dela |dele )?(?:fuma|bebe|e fumante)\b", " ", t)
+    # "não bebe nem fuma": o "nem" carrega a negação para o segundo hábito.
+    habitos = re.sub(r"\bnem\b", "nao", habitos)
+    # Fumo passivo é exposição, não hábito do paciente: fica em aberto.
+    habitos = re.sub(r"\b(fumante|tabagista|tabagismo)\s+passiv[oa]\b", " ", habitos)
 
     if re.search(
-        r"(nao|nunca)\s+(e\s+)?(fuma|fumante)|ex-?fumante|parou de fumar|parasse de fumar"
+        r"(nao|nunca)\s+(e\s+)?(fuma|fumou|fumante|tabagista)|ex-?(?:fumante|tabagista)"
+        r"|parou de fumar|parasse de fumar"
         r"|\bfumou\b.{0,30}\bparou|\bnega\w*\s+(?:o\s+)?(?:tabagismo|fumo)",
         habitos,
     ):
@@ -164,7 +173,8 @@ def extrair_por_regras(texto: str) -> Extracao:
     elif re.search(r"\b(fuma|fumante|tabagista)\b", habitos):
         d["fumante"] = True
     if re.search(
-        r"(nao|nunca)\s+(bebe|bebeu|consome alcool|ingere alcool)|abstemi|parasse de beber"
+        r"(nao|nunca)\s+(bebe|bebeu|(?:consome|ingere|toma)\s+(?:bebida\s+)?alcool\w*)"
+        r"|abstemi|ex-?etilista|parou de beber|parasse de beber"
         r"|\bnega\w*\s+[^.,;]{0,20}\b(?:etilismo|alcool)",
         habitos,
     ):
