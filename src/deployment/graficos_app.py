@@ -7,6 +7,8 @@ cálculos caros ficam em cache no ``app.py``.
 
 from __future__ import annotations
 
+from functools import wraps
+
 import altair as alt
 import numpy as np
 import pandas as pd
@@ -16,6 +18,22 @@ from src import config
 CINZA = "#8A99A6"
 COR_SIM, COR_NAO = config.CORAL, config.AZUL_COBALTO
 ESCALA_RISCO_RANGE = [config.AZUL_COBALTO, "#EEF2F5", config.CORAL]
+
+
+#: Números no padrão brasileiro em eixos, legendas e dicas: 0,801 · 80,8% · 13.711.
+LOCALE_PT_BR = {
+    "number": {"decimal": ",", "thousands": ".", "grouping": [3], "currency": ["R$ ", ""]}
+}
+
+
+def _em_portugues(funcao):
+    """Aplica o formato numérico brasileiro ao gráfico devolvido."""
+
+    @wraps(funcao)
+    def grafico(*args, **kwargs):
+        return funcao(*args, **kwargs).configure(locale=LOCALE_PT_BR)
+
+    return grafico
 
 
 def _escala_risco(limiar: float) -> alt.Scale:
@@ -51,6 +69,7 @@ def _linha_limiar(
 # --------------------------------------------------------------------------- #
 
 
+@_em_portugues
 def fatores(contrib: pd.Series) -> alt.Chart:
     """Barras horizontais: quanto cada variável empurra a probabilidade do paciente."""
     dados = pd.DataFrame(
@@ -92,6 +111,7 @@ def pressao_de_cruzamento(curva: pd.DataFrame, limiar: float) -> float | None:
     return float(acima["ap_hi"].min()) if len(acima) else None
 
 
+@_em_portugues
 def e_se_pressao(curva: pd.DataFrame, ap_hi: float, prob: float, limiar: float) -> alt.Chart:
     """Probabilidade do paciente se só a pressão sistólica mudasse."""
     base = alt.Chart(curva).encode(
@@ -131,6 +151,7 @@ def e_se_pressao(curva: pd.DataFrame, ap_hi: float, prob: float, limiar: float) 
     return (_linha_limiar(limiar) + linha + pontos_hover + atual).properties(height=280)
 
 
+@_em_portugues
 def posicao_na_populacao(p_teste: np.ndarray, prob: float, limiar: float) -> alt.Chart:
     """Histograma das probabilidades dos pacientes de teste, com o paciente marcado."""
     bordas = np.linspace(0, 1, 41)
@@ -171,6 +192,7 @@ def posicao_na_populacao(p_teste: np.ndarray, prob: float, limiar: float) -> alt
     return (barras + _linha_limiar(limiar, eixo="x") + paciente + rotulo).properties(height=280)
 
 
+@_em_portugues
 def mapa_pressao_idade(grade: pd.DataFrame, ap_hi: float, idade: float, limiar: float) -> alt.Chart:
     """Probabilidade do paciente em todo o plano pressão × idade, com ele marcado."""
     passo_pa = float(np.diff(np.unique(grade["ap_hi"]))[0])
@@ -239,6 +261,7 @@ def mapa_pressao_idade(grade: pd.DataFrame, ap_hi: float, idade: float, limiar: 
 # --------------------------------------------------------------------------- #
 
 
+@_em_portugues
 def curvas_limiar(varredura: pd.DataFrame, limiar: float) -> alt.Chart:
     """Sensibilidade, especificidade e precisão conforme o limiar, com o escolhido marcado."""
     longo = varredura.melt(id_vars="limiar", var_name="metrica", value_name="valor")
@@ -271,6 +294,7 @@ def curvas_limiar(varredura: pd.DataFrame, limiar: float) -> alt.Chart:
     )
 
 
+@_em_portugues
 def matriz_confusao(vp: int, fp: int, fn: int, vn: int) -> alt.Chart:
     """Matriz de confusão com contagens e o significado de cada célula."""
     dados = pd.DataFrame(
@@ -313,6 +337,7 @@ def matriz_confusao(vp: int, fp: int, fn: int, vn: int) -> alt.Chart:
     return (celulas + numeros + legenda).properties(height=300)
 
 
+@_em_portugues
 def calibracao(pontos: pd.DataFrame) -> alt.Chart:
     """Diagrama de confiabilidade: probabilidade prevista × proporção real de doentes."""
     diagonal = (
@@ -355,6 +380,7 @@ def calibracao(pontos: pd.DataFrame) -> alt.Chart:
     return (diagonal + linhas).properties(height=340)
 
 
+@_em_portugues
 def comparacao_modelos(ic: pd.DataFrame, destaque: str = "MLP Keras") -> alt.Chart:
     """AUC de cada modelo no teste com o intervalo de confiança de 95 %."""
     dados = ic.reset_index().rename(columns={"index": "modelo"})
@@ -391,6 +417,7 @@ def comparacao_modelos(ic: pd.DataFrame, destaque: str = "MLP Keras") -> alt.Cha
     return (barras + pontos).properties(height=alt.Step(40))
 
 
+@_em_portugues
 def importancia(permutacao: pd.DataFrame) -> alt.Chart:
     """Queda da AUC ao embaralhar cada variável (importância global)."""
     dados = permutacao.reset_index()

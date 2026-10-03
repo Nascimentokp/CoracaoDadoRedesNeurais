@@ -33,6 +33,7 @@ from typing_extensions import TypedDict
 
 from src.agente.esquemas import NIVEIS, Paciente, PacienteParcial, nivel, validar
 from src.agente.ferramentas import avaliar_validado, buscar_achados, desempenho
+from src.utils.formato import numero, pct
 
 LIMITE_MENSAGEM = 1000
 
@@ -79,6 +80,28 @@ def _sem_acento(texto: str) -> str:
 _ACIMA = r"(?:alt[oa]s?|elevad[oa]s?|acima(?:\s+do\s+normal)?)"
 _NIVEL = rf"(muito\s+{_ACIMA}|{_ACIMA}|limitrofe|normais|normal)"
 _PRESSAO = r"(\d{1,3}(?:[.,]\d)?\s*(?:por|x|/)\s*\d{1,3}(?:[.,]\d)?)"
+#: Sem a palavra "pressão" ou "PA", só "por" e "x" contam: "12/08" sozinho pode ser uma data.
+_PRESSAO_SOLTA = r"(\d{1,3}(?:[.,]\d)?\s*(?:por|x)\s*\d{1,3}(?:[.,]\d)?)"
+#: Parentes: o que eles fazem ("o marido fuma") não é dado do paciente.
+_TERCEIRO = r"\b(?:o |a )?(?:marido|esposa|companheir[oa]|pai|mae|filh[oa]|irma[oa])\b"
+
+
+def _idade(t: str) -> int | None:
+    """A idade do paciente, não a de um parente nem uma duração ("fumou por 10 anos")."""
+    candidatos = []
+    for m in re.finditer(r"(\d{2,3})\s*anos", t):
+        antes = t[max(0, m.start() - 25) : m.start()]
+        if re.search(r"\b(por|ha|faz|durante|aos|desde|mais de)\s*$", antes):
+            continue  # duração ou idade em que algo aconteceu
+        if re.search(_TERCEIRO + r"\s+(de|com|tem)\s*$", antes):
+            continue  # idade de um parente
+        preferido = bool(
+            re.search(r"(paciente|idade|tem|com|homem|mulher|senhora?)\D{0,12}$", antes)
+        )
+        candidatos.append((not preferido, m.start(), int(m.group(1))))
+    return min(candidatos)[2] if candidatos else None
+
+
 _PERGUNTA = (
     "modelo", "rede", "confiavel", "confia", "acerta", "auc", "sensibilidade", "especificidade",
     "limiar", "por que", "porque", "como funciona", "protege", "base de dados", "limitac",
@@ -90,37 +113,52 @@ def extrair_por_regras(texto: str) -> Extracao:
     t = _sem_acento(texto)
     d: dict = {}
 
-    if m := re.search(r"(\d{2,3})\s*anos", t):
-        d["idade"] = int(m.group(1))
+    if (idade := _idade(t)) is not None:
+        d["idade"] = idade
     if re.search(r"\b(homem|masculino|senhor)\b", t):
         d["sexo"] = "masculino"
     elif re.search(r"\b(mulher|feminino|senhora)\b", t):
         d["sexo"] = "feminino"
     if m := re.search(r"\b(\d[.,]\d{1,2})\s*(?:m\b|metro)", t):
         d["altura_cm"] = float(m.group(1).replace(",", "."))  # o esquema converte para cm
+    elif m := re.search(r"altura\D{0,10}(\d[.,]\d{1,2})\b", t):
+        d["altura_cm"] = float(m.group(1).replace(",", "."))
     elif m := re.search(r"(\d{3})\s*cm|altura\D{0,10}(\d{3})", t):
         d["altura_cm"] = int(m.group(1) or m.group(2))
     if m := re.search(r"(\d{2,3}(?:[.,]\d)?)\s*(?:kg|quilo|kilo)|peso\D{0,10}(\d{2,3})", t):
         d["peso_kg"] = float((m.group(1) or m.group(2)).replace(",", "."))
-    if m := re.search(r"(?:pressao|\bpa\b)\D{0,20}" + _PRESSAO, t) or re.search(_PRESSAO, t):
+    if m := re.search(r"(?:pressao|\bpa\b)\D{0,20}" + _PRESSAO, t) or re.search(_PRESSAO_SOLTA, t):
         d["pressao_texto"] = m.group(1)
 
     if m := re.search(r"colesterol\s+e\s+glicose\s+(?:estao\s+)?" + _NIVEL, t):
         d["colesterol"] = d["glicose"] = nivel(m.group(1))
     else:
-        for campo, padrao in (("colesterol", r"colesterol"), ("glicose", r"glicose|glicemia")):
-            if m := re.search(rf"(?:{padrao})\s*(?:esta\s*|e\s*|:\s*)?" + _NIVEL, t):
+        for campo, padrao in (
+            ("colesterol", r"colesterol(?:\s+(?:total|ldl))?"),
+            ("glicose", r"(?:glicose|glicemia)(?:\s+de\s+jejum)?"),
+        ):
+            if re.search(rf"(nao tem|sem)\s+(?:{padrao})\s+{_ACIMA}", t):
+                d[campo] = 1  # "não tem colesterol alto" = normal
+            elif m := re.search(rf"(?:{padrao})\s*(?:esta\s*|e\s*|:\s*)?" + _NIVEL, t):
                 d[campo] = nivel(m.group(1))
 
+    # Hábitos de parentes saem do texto antes de procurar os do paciente.
+    habitos = re.sub(_TERCEIRO + r"\s+(?:dela |dele )?(?:fuma|bebe|e fumante)\b", " ", t)
+
     if re.search(
-        r"(nao|nunca)\s+(e\s+)?(fuma|fumante)|ex-?fumante|parou de fumar|parasse de fumar", t
+        r"(nao|nunca)\s+(e\s+)?(fuma|fumante)|ex-?fumante|parou de fumar|parasse de fumar"
+        r"|\bfumou\b.{0,30}\bparou",
+        habitos,
     ):
         d["fumante"] = False
-    elif re.search(r"\b(fuma|fumante|tabagista)\b", t):
+    elif re.search(r"\b(fuma|fumante|tabagista)\b", habitos):
         d["fumante"] = True
-    if re.search(r"(nao|nunca)\s+(bebe|consome alcool|ingere alcool)|abstemi|parasse de beber", t):
+    if re.search(
+        r"(nao|nunca)\s+(bebe|bebeu|consome alcool|ingere alcool)|abstemi|parasse de beber",
+        habitos,
+    ):
         d["consome_alcool"] = False
-    elif re.search(r"\b(bebe|etilista|consome alcool)\b", t):
+    elif re.search(r"\b(bebe|etilista|consome alcool)\b", habitos):
         d["consome_alcool"] = True
     # "ativo" sozinho não basta ("caso ativo", "princípio ativo"): só conta com o contexto
     # de exercício — "fisicamente ativo", "pratica esporte", "faz caminhada", "academia".
@@ -200,7 +238,7 @@ def _fatores_legiveis(r: dict, n: int = 3) -> list[str]:
     def efeito(f: dict) -> str:
         # Vírgula decimal só no número do efeito: o valor do paciente (ex.: IMC 27.5)
         # e o "p.p." têm pontos próprios que não podem ser trocados.
-        return f"{f['efeito_pontos_percentuais']:+.1f}".replace(".", ",")
+        return numero(f["efeito_pontos_percentuais"], 1, sinal=True)
 
     return [
         f"{re.sub(r'\s*\(.*?\)', '', f['variavel']).lower()} ({f['valor_do_paciente']}): "
@@ -331,7 +369,7 @@ def construir_fluxo(llm: BaseChatModel | None = None, tentativas: int = 2):
         return {
             "resultado": resultado,
             "rastreio": [
-                f"avaliar (rede neural) → P = {resultado['probabilidade']:.1%}, "
+                f"avaliar (rede neural) → P = {pct(resultado['probabilidade'], 1)}, "
                 f"{resultado['decisao']}"
             ],
         }

@@ -43,6 +43,9 @@ diagnóstico, não prescreve e não substitui a avaliação clínica.
   devolvido. A nota sobre fumo/álcool só aparece quando eles constam reduzindo o risco.
 - **AGT-03**: sem chave de API, o assistente funciona em **modo demonstração** (regras,
   sem IA, sem custo), identificado na resposta. Com chave, usa OpenAI ou DeepSeek.
+  As regras não confundem: "ativo" sem contexto de exercício, idade de parente ou duração
+  ("fumou por 10 anos"), hábito de parente ("o marido fuma"), data ("12/08") e negação
+  ("não tem colesterol alto").
 - **AGT-04**: a saída estruturada do LLM é validada pelo Pydantic; se for rejeitada, o erro
   volta ao LLM para correção (até 2 tentativas). A ferramenta `avaliar_paciente` do agente
   ReAct tem o próprio `Paciente` como esquema.
@@ -53,6 +56,8 @@ diagnóstico, não prescreve e não substitui a avaliação clínica.
 - **APP-02**: o controle do limiar atualiza as métricas no teste.
 - **APP-03**: o assistente mostra o rastreio do fluxo; falha do provedor gera mensagem
   amigável, sem fingir resposta; mensagens limitadas a 1000 caracteres.
+- **APP-04**: números no padrão brasileiro (vírgula decimal) no app, nos gráficos e nas
+  respostas do assistente; a conversão é feita no número formatado, nunca na frase pronta.
 
 ## Desenvolvimento orientado a especificações
 1. Alterar ou acrescentar um critério aqui antes de mudar o comportamento.

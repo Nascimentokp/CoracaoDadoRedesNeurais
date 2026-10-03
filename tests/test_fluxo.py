@@ -89,6 +89,22 @@ def test_pergunta_sobre_o_modelo(demo):
         ("faz musculação três vezes por semana", "fisicamente_ativo", True),
         ("não é fisicamente ativo", "fisicamente_ativo", False),
         ("e se ela parasse a caminhada?", "fisicamente_ativo", False),
+        # idade do paciente, não duração nem idade de parente
+        ("fumou por 10 anos mas parou", "idade", None),
+        ("fumou por 10 anos mas parou", "fumante", False),
+        ("paciente de 45 anos, mãe faleceu aos 70 anos", "idade", 45),
+        ("filho de 30 anos acompanha; paciente com 62 anos", "idade", 62),
+        # hábitos de parentes não são do paciente
+        ("o marido fuma, ela não", "fumante", None),
+        ("nunca bebeu", "consome_alcool", False),
+        # data não é pressão; "/" só conta com a palavra pressão
+        ("homem, 50 anos, data 12/08", "pressao_texto", None),
+        ("pressão 120/80", "pressao_texto", "120/80"),
+        # negação e variações de nome
+        ("não tem colesterol alto", "colesterol", 1),
+        ("colesterol total alto", "colesterol", 2),
+        ("glicemia de jejum normal", "glicose", 1),
+        ("altura 1,75", "altura_cm", 1.75),
         ("nunca fumou, ex-fumante", "fumante", False),
         ("1,60 m", "altura_cm", 1.6),
     ],

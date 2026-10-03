@@ -20,6 +20,7 @@ from src.agente import agente as _agente  # noqa: E402, F401  (carrega o .env)
 from src.data.dados import derivar_variaveis, preparar  # noqa: E402
 from src.deployment import graficos_app as graf  # noqa: E402
 from src.model import avaliacao, treino  # noqa: E402
+from src.utils.formato import numero, pct  # noqa: E402
 from src.utils.io import ler_tabela  # noqa: E402
 
 st.set_page_config(page_title="Coração de Dados · Redes Neurais", page_icon="🫀", layout="wide")
@@ -166,10 +167,10 @@ with aba_paciente:
         percentil = (p_teste < prob).mean()
 
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Probabilidade de doença cardiovascular", f"{prob:.0%}")
-        m2.metric("Limiar de triagem", f"{LIMIAR:.0%}")
-        m3.metric("Risco maior que", f"{percentil:.0%} dos pacientes")
-        m4.metric("IMC", f"{analise['imc']:.1f}")
+        m1.metric("Probabilidade de doença cardiovascular", pct(prob))
+        m2.metric("Limiar de triagem", pct(LIMIAR))
+        m3.metric("Pacientes com risco menor", pct(percentil))
+        m4.metric("IMC", numero(analise["imc"]))
         if prob >= LIMIAR:
             st.error("**Encaminhar para investigação** — probabilidade acima do limiar de triagem.")
         else:
@@ -335,14 +336,15 @@ with aba_modelo:
     padrao = metadados["teste_limiar_05"]
     st.markdown(
         f"Avaliado em **{inteiro(metadados['n_teste'])} pacientes de teste** que a rede nunca "
-        f"viu. O limiar de {LIMIAR:.2f} foi escolhido na validação para encontrar pelo menos "
-        f"{metadados['recall_minimo']:.0%} dos doentes."
+        f"viu. O limiar de {numero(LIMIAR, 2)} foi escolhido na validação para encontrar "
+        "pelo menos "
+        f"{pct(metadados['recall_minimo'])} dos doentes."
     )
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("AUC-ROC", f"{escolhido['auc_roc']:.3f}")
-    c2.metric("Sensibilidade", f"{escolhido['sensibilidade']:.1%}")
-    c3.metric("Especificidade", f"{escolhido['especificidade']:.1%}")
-    c4.metric("Precisão", f"{escolhido['precisao']:.1%}")
+    c1.metric("AUC-ROC", numero(escolhido["auc_roc"], 3))
+    c2.metric("Sensibilidade", pct(escolhido["sensibilidade"], 1))
+    c3.metric("Especificidade", pct(escolhido["especificidade"], 1))
+    c4.metric("Precisão", pct(escolhido["precisao"], 1))
 
     @st.fragment
     def explorar_limiar() -> None:
@@ -363,16 +365,17 @@ with aba_modelo:
             k1, k2, k3, k4 = st.columns(4)
             k1.metric(
                 "Sensibilidade",
-                f"{m['sensibilidade']:.1%}",
-                f"{m['sensibilidade'] - triagem['sensibilidade']:+.1%} vs. triagem",
+                pct(m["sensibilidade"], 1),
+                pct(m["sensibilidade"] - triagem["sensibilidade"], 1, sinal=True) + " vs. triagem",
             )
             k2.metric(
                 "Especificidade",
-                f"{m['especificidade']:.1%}",
-                f"{m['especificidade'] - triagem['especificidade']:+.1%} vs. triagem",
+                pct(m["especificidade"], 1),
+                pct(m["especificidade"] - triagem["especificidade"], 1, sinal=True)
+                + " vs. triagem",
             )
-            k3.metric("Precisão", f"{m['precisao']:.1%}")
-            k4.metric("Encaminhados", f"{(m['vp'] + m['fp']) / len(y):.0%} dos pacientes")
+            k3.metric("Precisão", pct(m["precisao"], 1))
+            k4.metric("Pacientes encaminhados", pct((m["vp"] + m["fp"]) / len(y)))
             c_matriz, c_curvas = st.columns([2, 3])
             with c_matriz:
                 st.altair_chart(graf.matriz_confusao(m["vp"], m["fp"], m["fn"], m["vn"]))
@@ -422,7 +425,7 @@ with aba_modelo:
 
     with st.expander("Tabela: limiar 0,50 × limiar de triagem"):
         tabela = pd.DataFrame(
-            {"Limiar 0,50": padrao, f"Limiar {LIMIAR:.2f} (triagem)": escolhido}
+            {"Limiar 0,50": padrao, f"Limiar {numero(LIMIAR, 2)} (triagem)": escolhido}
         ).loc[
             [
                 "acuracia",
@@ -447,7 +450,9 @@ with aba_modelo:
             "Doentes perdidos (FN)",
             "Saudáveis liberados (VN)",
         ]
-        st.dataframe(tabela.style.format("{:.3f}", subset=pd.IndexSlice[tabela.index[:5], :]))
+        st.dataframe(
+            tabela.style.format(lambda v: numero(v, 3), subset=pd.IndexSlice[tabela.index[:5], :])
+        )
 
 # --------------------------------------------------------------------------- #
 # Sobre

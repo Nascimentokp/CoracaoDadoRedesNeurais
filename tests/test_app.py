@@ -74,6 +74,15 @@ def _graficos(app):
     return app.get("vega_lite_chart")
 
 
+def test_numeros_com_virgula_decimal():
+    """APP-04: IMC, AUC e porcentagens no padrão brasileiro."""
+    app = AppTest.from_file(APP, default_timeout=90).run()
+    valores = {m.label: m.value for m in app.metric}
+    assert valores["IMC"] == "27,5"  # 75 kg, 165 cm (valores padrão do formulário)
+    assert valores["AUC-ROC"].startswith("0,")
+    assert "," in valores["Sensibilidade"] and "." not in valores["Sensibilidade"]
+
+
 def test_app_mostra_todos_os_graficos():
     """APP-01."""
     app = AppTest.from_file(APP, default_timeout=90).run()
@@ -90,10 +99,10 @@ def test_slider_do_limiar_atualiza_metricas():
     def sensibilidade_explorada() -> float:
         # A métrica do controle é a que traz a comparação ("vs. triagem") no delta.
         metrica = next(m for m in app.metric if m.label == "Sensibilidade" and m.delta)
-        return float(metrica.value.rstrip("%"))
+        return float(metrica.value.rstrip("%").replace(",", "."))
 
     assert next(m for m in app.metric if m.label == "Sensibilidade" and m.delta).delta.startswith(
-        "+0.0%"
+        "+0,0%"
     )
     antes = sensibilidade_explorada()
     app.slider(key="limiar_explorado").set_value(0.2).run()
