@@ -8,7 +8,7 @@ import pytest
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
 
-from src.agente.fluxo import construir_fluxo, extrair_por_regras, triar
+from src.agente.fluxo import _fatores_legiveis, construir_fluxo, extrair_por_regras, triar
 from src.model import treino
 
 pytestmark = pytest.mark.skipif(
@@ -83,6 +83,12 @@ def test_pergunta_sobre_o_modelo(demo):
         ("colesterol muito alto", "colesterol", 3),
         ("ela é sedentária", "fisicamente_ativo", False),
         ("devo encaminhar?", "fisicamente_ativo", None),  # "encaminhar" não é "caminha"
+        ("caso ativo de hipertensão", "fisicamente_ativo", None),  # "ativo" sozinho não é exercício
+        ("princípio ativo do remédio", "fisicamente_ativo", None),
+        ("é fisicamente ativa", "fisicamente_ativo", True),
+        ("faz musculação três vezes por semana", "fisicamente_ativo", True),
+        ("não é fisicamente ativo", "fisicamente_ativo", False),
+        ("e se ela parasse a caminhada?", "fisicamente_ativo", False),
         ("nunca fumou, ex-fumante", "fumante", False),
         ("1,60 m", "altura_cm", 1.6),
     ],
@@ -120,3 +126,12 @@ def test_saida_invalida_do_llm_volta_para_correcao():
     assert _nos(r["rastreio"]) == ["interpretar", "validar", "avaliar", "explicar"]
     assert "(LLM) → triagem" in r["rastreio"][0]
     assert r["resposta"] == "Explicação redigida."
+
+
+def test_virgula_decimal_so_no_numero_do_efeito():
+    """AGT-02: o valor do paciente com decimal não rouba a vírgula do efeito."""
+    fator = {"variavel": "IMC", "valor_do_paciente": "27.5", "efeito_pontos_percentuais": 1.8,
+             "sentido": "aumenta o risco"}  # fmt: skip
+    assert _fatores_legiveis({"fatores_principais": [fator]}) == [
+        "imc (27.5): +1,8 p.p. (aumenta o risco)"
+    ]

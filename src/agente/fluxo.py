@@ -122,11 +122,19 @@ def extrair_por_regras(texto: str) -> Extracao:
         d["consome_alcool"] = False
     elif re.search(r"\b(bebe|etilista|consome alcool)\b", t):
         d["consome_alcool"] = True
-    if re.search(r"sedentari|inativ|nao\s+(pratica|faz)\s+(atividade|exercicio)", t):
+    # "ativo" sozinho não basta ("caso ativo", "princípio ativo"): só conta com o contexto
+    # de exercício — "fisicamente ativo", "pratica esporte", "faz caminhada", "academia".
+    if re.search(
+        r"sedentari|inativ|nao\s+(pratica|faz)\s+(atividade|exercicio)"
+        r"|nao\s+e\s+(fisicamente\s+)?ativ[oa]"
+        r"|(parasse|parou|deixasse|deixou)\s+(a|de)\s+(caminhada|caminhar|malhar|treinar|academia)",
+        t,
+    ):
         d["fisicamente_ativo"] = False
     elif re.search(
-        r"fisicamente ativ|pratica (atividade|exercicio|esporte)|academia"
-        r"|\bcaminha(?:da|r)?\b|\bativ[oa]\b",
+        r"fisicamente ativ|\bativ[oa] fisicamente|atividade fisica|academia"
+        r"|(pratica|faz)\s+(atividade|exercicio|esporte|musculacao)|\bse exercita"
+        r"|\bcaminha(?:da|r)?\b",
         t,
     ):
         d["fisicamente_ativo"] = True
@@ -188,9 +196,15 @@ def _descrever_paciente(p: Paciente) -> str:
 
 def _fatores_legiveis(r: dict, n: int = 3) -> list[str]:
     """'pressão sistólica (150): +22,5 p.p.' para os n primeiros fatores."""
+
+    def efeito(f: dict) -> str:
+        # Vírgula decimal só no número do efeito: o valor do paciente (ex.: IMC 27.5)
+        # e o "p.p." têm pontos próprios que não podem ser trocados.
+        return f"{f['efeito_pontos_percentuais']:+.1f}".replace(".", ",")
+
     return [
         f"{re.sub(r'\s*\(.*?\)', '', f['variavel']).lower()} ({f['valor_do_paciente']}): "
-        f"{f['efeito_pontos_percentuais']:+.1f} p.p. ({f['sentido']})".replace(".", ",", 1)
+        f"{efeito(f)} p.p. ({f['sentido']})"
         for f in r["fatores_principais"][:n]
     ]
 
